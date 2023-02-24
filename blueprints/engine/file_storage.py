@@ -29,7 +29,7 @@ class FileStorage:
     
     def save(self):
         """Saves storage dictionary to file"""
-        with open(FileStorage.__objects) as objects_file:
+        with open(FileStorage.__file_path, 'w') as objects_file:
             cached_objects = {}
             cached_objects.update(FileStorage.__objects)
             for key, val in cached_objects.items():
@@ -44,8 +44,8 @@ class FileStorage:
             with open(FileStorage.__file_path, 'r') as object_file:
                 cached_objects = json.load(object_file)
 
-            for key, val in cached_objects.items():
-                object_ = classes[val['__class__']](**cached_objects[key]) # Initializing an object from the dict
+            for key, value in cached_objects.items():
+                object_ = classes[value['__class__']](cached_objects[key]) # Initializing an object from the dict
                 self.__objects[key] = object_
 
         except FileNotFoundError:

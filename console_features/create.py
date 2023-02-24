@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
+"""Contains functions responsible for the logic behind creation of objects"""
 from blueprints.community import Community
 from blueprints.issue import Issue
 from blueprints.debate import Debate
 from blueprints.user import User
-from blueprints.engine.ancestry import giveObjectRelationship, checkIfObjectExists
+from blueprints.engine.ancestry import giveObjectRelationship, checkIfObjectExists, createCommunityIssuesArchive, writeIssueIntoJSON
 import hashlib
-"""Contains functions responsible for the logic behind creation of objects"""
-FAIL_OUTPUT = "Failed while trying to create object in the creation module."
-def community(**kwargs):
+
+
+FAIL_OUTPUT = "Failed while trying to create object in the create module."
+def community(kwargs):
     """This function correctly initialises a <Community>, <Issue> and <Debate> instance"""
 
-    parameters = ['parents', 'title']
+    if not isinstance(kwargs, dict):
+        print("The parameter is not a dictionary")
+        return
+
+    parameters = ['parent', 'title']
     object_dictionary = {}
     if kwargs is None:
         print("Kwargs cannot be empty")
@@ -20,28 +26,28 @@ def community(**kwargs):
         return
     try:
         community_parent = kwargs['parent']
-        if community_parent is None or community_parent == "":
-            print("Please specify the <param> param (mother of the community)")
-            print(FAIL_OUTPUT)
-            return None
-        
     except ValueError:
         print("Please specify the <parent> param")
         print(FAIL_OUTPUT)
         return None
     # Check if mother is valid
-    if checkIfObjectExists(community_parent, "Community") is False:
-        print("<parent> is non-existent. FATAL! Creation cancelled")
-        print(FAIL_OUTPUT)
-        return None
+    if (community_parent is not None):
+        if (checkIfObjectExists(community_parent, "Community") is False):
+            print("<parent> is non-existent. FATAL! Creation cancelled")
+            print(FAIL_OUTPUT)
+            return None
     kwargs['__class__'] = "Community"
     newCommunity = Community(kwargs)
-    successSigOfRelationshipCreation = giveObjectRelationship(newCommunity.to_dict())
-    if (successSigOfRelationshipCreation):
+    successSigOfRelationshipCreation = giveObjectRelationship(newCommunity)
+    if (successSigOfRelationshipCreation and createCommunityIssuesArchive(newCommunity)):
         return (newCommunity)
 
-def issue(**kwargs):
+def issue(kwargs):
     """This function correctly initialises an <Issue> instance"""
+    if not isinstance(kwargs, dict):
+        print("The parameter is not a dictionary")
+        return
+    
     parameters = ['parent', 'post']
     object_dictionary = {}
     if kwargs is None:
@@ -55,19 +61,23 @@ def issue(**kwargs):
         print("Please populate the <parent> param (mother of the community)")
         print(FAIL_OUTPUT)
         return None
-    # Check if mother is valid
-    if checkIfObjectExists(issue_parent, "Issue") is False:
-        print("<parent> is non-existent. FATAL! Creation cancelled")
-        print(FAIL_OUTPUT)
-        return None
-    kwargs['__class__'] = "Issue"
-    newIssue = Issue(kwargs)
-    successSigOfRelationshipCreation = giveObjectRelationship(newIssue.to_dict())
-    if (successSigOfRelationshipCreation):
-        return (newIssue)
     
-def user(**kwargs):
+    kwargs['__class__'] = "Issue"
+    new_issue = Issue(kwargs)
+    if writeIssueIntoJSON(issue_):
+        return (new_issue)
+    
+    else:
+        print("Failed in updating Issue's into JSON")
+        return None
+
+def user(kwargs):
     """This function correctly initialises a <User> instance"""
+    
+    if not isinstance(kwargs, dict):
+        print("The parameter is not a dictionary")
+        return
+    
     parameters = ['id_number', 'phone_number', 'email', 'password']
     object_dictionary = {}
     if kwargs is None:
@@ -81,3 +91,4 @@ def user(**kwargs):
     passwordHexadecimal = hashed.hexdigest()
     kwargs['password'] = passwordHexadecimal
     new_user = User(kwargs)
+    return (new_user)

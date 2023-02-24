@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """This module describe the user object"""
 import blueprints
-from blueprints import storage
 from blueprints.base_model import BaseModel
 from blueprints.issue import Issue
 
@@ -15,9 +14,9 @@ class User(BaseModel):
     issues_voted_on = {}
     communities_joined = []
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, kwargs):
         """Initiates a user"""
-        super().__init__(*args, **kwargs)
+        super().__init__(kwargs)
     
     def voteFor(self, issue_):
         """
@@ -58,6 +57,7 @@ class User(BaseModel):
     def joinCommunity(self, community_id):
         """Adds the community to the list of user's community memberships"""
         try:
+            from blueprints import storage
             community_joining = storage.all()[f"Community.{community_id}"]
         except KeyError:
             print("community is non-existent")
@@ -65,5 +65,16 @@ class User(BaseModel):
         self.communities_joined.append(community_id)
         return True
 
+    def leaveCommunity(self, community_id):
+        """Removes the community from the list of user's community memberships"""
+        try:
+            from blueprints import storage
+            community_leaving = storage.all()[f"Community.{community_id}"]
+        except KeyError:
+            print("community is non-existent")
+            return False
+        self.communities_joined.remove(community_id)
+        return True
+    
 
         

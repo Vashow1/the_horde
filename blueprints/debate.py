@@ -8,7 +8,7 @@ class Debate(BaseModel):
     text = ""
     respondTo = ""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, kwargs):
         """initiates a debate instance"""
-        super().__init__(*args, **kwargs)
+        super().__init__(kwargs)
         self.name = self.parent  + '_' + self.__class__.__name__ + "." + self.id

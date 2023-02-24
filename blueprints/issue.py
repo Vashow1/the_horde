@@ -11,10 +11,10 @@ class Issue(BaseModel):
     user_id = ""
     text = ""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, kwargs):
         """Initialising the Issue"""
-        super().__init__(*args, **kwargs)
-        self.name = self.parent  + '_' + self.__class__.__name__ + "." + self.id
+        super().__init__(kwargs)
+        self.name = self.parent  + '-' + self.__class__.__name__ + "." + self.id
         self.for_against_tally = 0
         self.vote_count = 0
     

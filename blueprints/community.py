@@ -16,10 +16,14 @@ class Community(BaseModel):
     Title = ""
     members = {}
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, kwargs):
         """Initializes city"""
-        super().__init__(*args, **kwargs)
-        self.name = self.parent  + '_' + self.__class__.__name__ + "." + self.id
+        super().__init__(kwargs)
+        self.title = self.title.lower()
+        if self.parent is None:
+            self.name = self.title
+            return
+        self.name = self.parent  + '-' + self.title
     
     def addMember(self, user_):
         """Adds the <user_> instance to the community"""

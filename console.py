@@ -3,14 +3,15 @@ import cmd
 import sys
 import hashlib
 import json
+from pprint import pprint
 from datetime import datetime
-from blueprints.__init__ import storage
+from blueprints import storage
 from blueprints.community import Community
 from blueprints.issue import Issue
 from blueprints.debate import Debate
 from blueprints.user import User
-from console_functions import create, update
-
+from console_features import create, update, destroy
+from blueprints.engine.ancestry import getIssuesOfCommunity
 class TheHorde(cmd.Cmd):
     """Contains the functionality for the HBNB console"""
     prompt = 'zombie:$ ' if sys.__stdin__.isatty() else ''
@@ -19,7 +20,14 @@ class TheHorde(cmd.Cmd):
     
     dot_cmds = ['all', 'count', 'show', 'destroy', 'update']
     user = None
-    
+
+    def checkIfUserIsInitialised(self):
+         if TheHorde.user is None:
+                print("Please initialise user first using the `authorize` function. For help type `help authorize`")
+                return False
+         else:
+             return True
+
     def preloop(self) -> None:
         """Prints if isatty is false"""
         if not sys.__stdin__.isatty():
@@ -35,16 +43,7 @@ class TheHorde(cmd.Cmd):
         Please note the syntax because the cmd is very strict
         and may not allow any deviation in terms of whitespace
         """
-        try:
-            if TheHorde.user is None:
-                print("Please initialise user first using the `authorize` function. For help type `help authorize`")
-                raise Exception
-            else:
-                pass
-        except Exception as error:
-            exit
-            
-    
+        line = line.lower()
         command_ = class_ = id_ = args_ = '' # initialise line elements
         
         #scan for general reformatting - i.e '.', '(', ')'
@@ -116,37 +115,41 @@ class TheHorde(cmd.Cmd):
         `authorize <id> <password>`
         if registering user:
         `authorize {
-                    'id_number': <explanatory>,
-                    'phone_number': <explanatory>,
-                    'email': <ditto>,
-                    'password': <ditto>
+                    "id_number": <explanatory>,
+                    "phone_number": <explanatory>,
+                    "email": <ditto>,
+                    "password": <ditto>
                     }
         `
         Note the last command has been indented and formatted for visual comprehension
         but it should all be in a single line
+        Also to ensure proper behaviour use double quotes for the strings
         """
         if line[0] == '{':
             try:
                 new_user_params = json.loads(line)
-            except json.JSONDecodeError:
-                 print("Invalid dictionary. FAIL!")
+            except json.JSONDecodeError as error:
+                 print(f"{str(error)}\nFAIL!")
                  return
             new_user = create.user(new_user_params)
             print(f"New user created of id: {new_user.id}")
             print("Please store this <id> in a safe place as it will be required every time you log in")
             TheHorde.user = new_user
+            storage.new(new_user)
+            storage.reload()
             return
         processedLine = line.split(' ')
         id_ = processedLine[0]
-        password = processedLine[0]
+        password = processedLine[1]
         try:
             user_instance = storage.all()[f'User.{id_}']
         except KeyError:
-            "<id> does not exist. Try Again"
-        
+            print("<id> does not exist. Try Again")
+            return
+
         password_hashed = hashlib.sha256(password.encode())
         hex_password = password_hashed.hexdigest()
-        if hex_password == user_instance['password']:
+        if hex_password == user_instance.password:
             TheHorde.user = user_instance
         else:
             print("Wrong Password. Failed to initialise. Try Again")
@@ -162,6 +165,9 @@ class TheHorde(cmd.Cmd):
                 {'parent':<community_ancestral_name>, 'post': <post_string>}
         
         """
+        if not self.checkIfUserIsInitialised():
+            print("Please initialise user first using the `authorize` function. For help type `help authorize`")
+            return
         if not line:
             print("<class_name> missing")
             return
@@ -176,20 +182,22 @@ class TheHorde(cmd.Cmd):
             return
         try:
             kwargs_ = json.loads(kwargs_)
-        except json.JSONDecodeError:
-            print("Wrong input of parameters, please ensure that the parameters are enclosed in {} and is a legal dictionary.")
+        except json.JSONDecodeError as error:
+            print(f"{str(error)}")
             return
         
         match class_:
             case "Community":
                 newCommunity = create.community(kwargs_)
-                storage.new(newCommunity)
-                print(newCommunity.id)
+                if newCommunity is not None:
+                    storage.new(newCommunity)
+                    print(newCommunity.id)
             case "Issue":
                 kwargs_['user_id'] = TheHorde.user.id
                 newIssue = create.issue(kwargs_)
-                storage.new(newIssue)
-                print(newIssue.id)
+                if newIssue is not None:
+                    storage.new(newIssue)
+                    print(newIssue.id)
             case _:
                 print("Authorised. FAIL!")
                 return
@@ -202,6 +210,9 @@ class TheHorde(cmd.Cmd):
         Method to show an individual object
         Usage: show <class_name> <object_id>
         """
+        if not self.checkIfUserIsInitialised():
+            print("Please initialise user first using the `authorize` function. For help type `help authorize`")
+            return
         processedLine = line.split(" ")
         class_ = processedLine[0]
         id_ = processedLine[1]
@@ -227,6 +238,9 @@ class TheHorde(cmd.Cmd):
         This method destroys an object
         Usage: destroy <class_name> <id>
         """
+        if not self.checkIfUserIsInitialised():
+            print("Please initialise user first using the `authorize` function. For help type `help authorize`")
+            return
         processedLine = line.split(" ")
         class_ = processedLine[0]
         id_ = processedLine[1]
@@ -240,12 +254,15 @@ class TheHorde(cmd.Cmd):
         if not id_:
             print("<id> missing. FAIL!")
             return
-        object_name = class_ + '.' + id_
-        try:
-            del(storage.all()[object_name])
-            storage.save()
-        except KeyError:
-            print("Instance does not exist. FAIL!")
+        match 'class_':
+            case 'Community':
+                destroy.communityBasedObject(class_, id_)
+                return
+            case 'Issue':
+                destroy.communityBasedObject(class_, id_)
+                return
+            case _:
+                destroy.communityBasedObject(class_, id_)
 
     def do_all(self, line):
         """
@@ -256,6 +273,9 @@ class TheHorde(cmd.Cmd):
         To show all objects of specific class
         `all <ClassName>`
         """
+        if not self.checkIfUserIsInitialised():
+            print("Please initialise user first using the `authorize` function. For help type `help authorize`")
+            return
         objects_list = []
         if line:
             class_ = line.split(" ")[0]
@@ -266,9 +286,9 @@ class TheHorde(cmd.Cmd):
                 class_name = key.split('.')[0]
                 if class_name == class_:
                     objects_list.append(str(value))
-                else:
-                    for key, value in storage.all().items():
-                        objects_list.append(str(value))
+        else:
+            for key, value in storage.all().items():
+                objects_list.append(str(value))
             
         print(objects_list)
     
@@ -278,6 +298,10 @@ class TheHorde(cmd.Cmd):
         
         Usage: count <class_name>
         """
+        if not self.checkIfUserIsInitialised():
+            print("Please initialise user first using the `authorize` function. For help type `help authorize`")
+            return
+        
         if not line or len(line) == 0:
             print("Missing class name. FAIL!")
         count = 0
@@ -317,6 +341,9 @@ class TheHorde(cmd.Cmd):
         update Issue <someRandomId> {'parent': '<name_of_parent>'}
         This will update the parent attribute of Issue instance.
         """
+        if not self.checkIfUserIsInitialised():
+            print("Please initialise user first using the `authorize` function. For help type `help authorize`")
+            return
         if line is None or len(line) < 1:
             print("Missing class name. Cannot update. FAIL")
             return
@@ -355,6 +382,37 @@ class TheHorde(cmd.Cmd):
         This command allows you to join a certain community
         Usage: `join <community_id>`
         """
+        if not self.checkIfUserIsInitialised():
+            print("Please initialise user first using the `authorize` function. For help type `help authorize`")
+            return
+        processed_line = line.split(' ')
+        if line is None or len(processed_line) == 0:
+            print("Please input <community_id>")
+        community_id = processed_line[0]
+        try:
+            community_to_leave = storage.all()[f'Community.{community_id}']
+        except KeyError:
+            print("Community does not exist. FAIL!")
+            return
+        if not community_to_leave.removeMember(TheHorde.user):
+            print("FAILURE")
+            return
+        if not TheHorde.user.joinCommunity(community_id):
+            print("Unrecognised error. Cancelling operation")
+            community_to_join.removeMember(TheHorde.user)
+        print("Communities you are part of:")
+        for community_ in TheHorde.user.communities_joined:
+            print("\t+ {community_}")
+        
+    def do_leave(self, line):
+        """
+        cancels a user membership to a community
+        usage:
+        leave <community_id>
+        """
+        if not self.checkIfUserIsInitialised():
+            print("Please initialise user first using the `authorize` function. For help type `help authorize`")
+            return
         processed_line = line.split(' ')
         if line is None or len(processed_line) == 0:
             print("Please input <community_id>")
@@ -364,16 +422,43 @@ class TheHorde(cmd.Cmd):
         except KeyError:
             print("Community does not exist. FAIL!")
             return
-        if not community_to_join.addMember(TheHorde.user):
+        if not community_to_join.removeMember(TheHorde.user):
             print("FAILURE")
             return
-        if not TheHorde.user.joinCommunity(community_id):
+        if not TheHorde.user.leaveCommunity(community_id):
             print("Unrecognised error. Cancelling operation")
             community_to_join.removeMember(TheHorde.user)
         print("Communities you are part of:")
-        User.communities_joined
         for community_ in TheHorde.user.communities_joined:
             print("\t+ {community_}")
+        
+    
+    def do_for_you(self, line):
+        """
+        This function displays the a curated list of issues
+        based on community
+
+        PLEASE NOTE THIS FUNCTION IS STILL IN PRODUCTION, SO IT ONLY
+        DISPLAYS A JSON OF ALL THE ISSUES RANKED ON TIME CREATED,
+        OF ALL COMMUNITIES USER IS A MEMBER.
+        
+        -----------------------------------------------------------------
+        
+        FUTURE UPDATE OF THIS FUNCTION WILL INSTEAD WEIGHT THE ISSUES BASED
+        ON VOTES_TALLY, TIME_CREATED, VOTES_FOR AND VOTES_AGAINST. 
+        """
+        if not self.checkIfUserIsInitialised():
+            print("Please initialise user first using the `authorize` function. For help type `help authorize`")
+            return
+        current_user = TheHorde.user
+        user_communities_ids = current_user.communities_joined
+        issues_dict = {}
+        for community_id in user_communities_ids:
+            community_instance = storage.all()[f'Community.{community_id}']
+            community_name = community_instance.name
+            issues_dict[community_name] = getIssuesOfCommunity(community_name)
+        
+        pprint(issues_dict)
 
 if __name__ == "__main__":
     TheHorde().cmdloop()
