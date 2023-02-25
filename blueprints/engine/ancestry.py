@@ -17,13 +17,14 @@ def getNamesFromFileOf(object_):
     if object_ is None:
         print(OBJ_NONE)
         return (None)
-    class_ = object_.__class__.__name__
+    class_ = "Community"
     filepath = f'ancestry_files/{class_}.lst'
     try:
         with open(filepath, 'r') as object_file:
             object_lst = object_file.read().split('_')
         return object_lst
     except FileNotFoundError:
+        print(f"File {filepath} not found")
         return []
 
 def writeIdsToFile(filepath, sortedListOfIds):
@@ -77,7 +78,7 @@ def giveObjectRelationship(object_):
     the ISSUEFILE until it finds its members and
     slots itself in directed by the alphabetical order
     """
-    filepath = f'ancestry_files/{object_.__class__.__name__}.lst' 
+    filepath = f'ancestry_files/{object_.__class__.__name__}.lst'
     if object_ is None:
         print(OBJ_NONE)
         return (None)
@@ -115,7 +116,8 @@ def giveObjectRelationship(object_):
             high = mid - 1
         else:
             low = mid + 1
-        return (0)
+    print("Failed to insert community into ancestry file. Bug in the binary insert function.")
+    return (0)
     
 
 def createCommunityIssuesArchive(community_):
@@ -147,21 +149,15 @@ def createCommunityIssuesArchive(community_):
             json.dump(issues_dict, object_file)
     return True
 
-def getCommunityParentOf(instanceAncestralName):
-    communityNameList = instanceAncestralName.split('_')[:-1]
-    communityName = "_".join(communityNameList)
-    return (communityName)
-
-def checkIfObjectExists(objectName, className):
+def checkIfObjectExists(objectName):
     """Checks if object is in the associated ancestry_file"""
-    filepath = f'ancestry_files/{className}.lst'
-    sortedListOfObjectIds = getNamesFromFileOf(eval(className))
-    print(sortedListOfObjectIds)
+
+    sortedListOfObjectIds = getNamesFromFileOf(Community)
     low = 0
     high = len(sortedListOfObjectIds) - 1
 
     while low <= high:
-        mid = (low + high) / 2
+        mid = int((low + high) / 2)
         guess = sortedListOfObjectIds[mid]
         if guess == objectName:
             return True

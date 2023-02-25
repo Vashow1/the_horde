@@ -32,15 +32,22 @@ def community(kwargs):
         return None
     # Check if mother is valid
     if (community_parent is not None):
-        if (checkIfObjectExists(community_parent, "Community") is False):
+        if (checkIfObjectExists(community_parent) is False):
             print("<parent> is non-existent. FATAL! Creation cancelled")
             print(FAIL_OUTPUT)
             return None
+    print(kwargs)
     kwargs['__class__'] = "Community"
     newCommunity = Community(kwargs)
     successSigOfRelationshipCreation = giveObjectRelationship(newCommunity)
-    if (successSigOfRelationshipCreation and createCommunityIssuesArchive(newCommunity)):
-        return (newCommunity)
+    if not (successSigOfRelationshipCreation):
+        print("Failed in trying to create relationship. Function failed: giveObjectRelationship()")
+        return None
+    if not createCommunityIssuesArchive(newCommunity):
+        print("Failed in trying to initiate a community issues archive. Function failed: createCommunityIssuesArchive")
+        return None
+
+    return (newCommunity)
 
 def issue(kwargs):
     """This function correctly initialises an <Issue> instance"""

@@ -43,7 +43,6 @@ class TheHorde(cmd.Cmd):
         Please note the syntax because the cmd is very strict
         and may not allow any deviation in terms of whitespace
         """
-        line = line.lower()
         command_ = class_ = id_ = args_ = '' # initialise line elements
         
         #scan for general reformatting - i.e '.', '(', ')'
@@ -136,7 +135,7 @@ class TheHorde(cmd.Cmd):
             print("Please store this <id> in a safe place as it will be required every time you log in")
             TheHorde.user = new_user
             storage.new(new_user)
-            storage.reload()
+            storage.save()
             return
         processedLine = line.split(' ')
         id_ = processedLine[0]
@@ -390,11 +389,11 @@ class TheHorde(cmd.Cmd):
             print("Please input <community_id>")
         community_id = processed_line[0]
         try:
-            community_to_leave = storage.all()[f'Community.{community_id}']
+            community_to_join = storage.all()[f'Community.{community_id}']
         except KeyError:
             print("Community does not exist. FAIL!")
             return
-        if not community_to_leave.removeMember(TheHorde.user):
+        if not community_to_join.removeMember(TheHorde.user):
             print("FAILURE")
             return
         if not TheHorde.user.joinCommunity(community_id):
