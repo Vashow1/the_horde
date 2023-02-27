@@ -85,7 +85,7 @@ def user(kwargs):
         print("The parameter is not a dictionary")
         return
     
-    parameters = ['id_number', 'phone_number', 'email', 'password']
+    parameters = ['id_number', 'phone_number', 'email']
     object_dictionary = {}
     if kwargs is None:
         print("Kwargs cannot be empty")
@@ -93,9 +93,5 @@ def user(kwargs):
     if sorted(parameters) != sorted(kwargs.keys()):
         print("wrong parametes. FAIL")
         return
-    password = kwargs['password']
-    hashed = hashlib.sha256(password.encode())
-    passwordHexadecimal = hashed.hexdigest()
-    kwargs['password'] = passwordHexadecimal
     new_user = User(kwargs)
     return (new_user)

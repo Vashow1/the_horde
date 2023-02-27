@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import cmd
 import sys
-import hashlib
 import json
 from pprint import pprint
 from datetime import datetime
@@ -10,7 +9,7 @@ from blueprints.community import Community
 from blueprints.issue import Issue
 from blueprints.debate import Debate
 from blueprints.user import User
-from console_features import create, update, destroy
+from console_features import create, update, destroy, sphinx, mundane
 from blueprints.engine.ancestry import getIssuesOfCommunity
 class TheHive(cmd.Cmd):
     """Contains the functionality for the HBNB console"""
@@ -106,16 +105,17 @@ class TheHive(cmd.Cmd):
         """Overrides the emptyline method of Cmd"""
         pass
 
+    def do_log_out(self, line):
+        """Logs out the user"""
+        TheHive.user = None
+
     def do_register(self, line):
         """
-        Initialises a user session
-        --------------------------
+        Registers a user
+        ----------------
 
-        + For logging in use:
-            `authorize <id> <password>`
-
-        + if registering user:
-            `authorize 
+        + Usage:
+            `register 
                     {
                     "id_number": "12345678",
                     "phone_number": "+254#########",
@@ -133,31 +133,49 @@ class TheHive(cmd.Cmd):
         - Also to ensure proper behaviour use double quotes for the
           strings
         """
+        self.do_log_out
+
         if line[0] == '{':
             try:
                 new_user_params = json.loads(line)
             except json.JSONDecodeError as error:
                  print(f"{str(error)}\nFAIL!")
                  return
-            new_user = create.user(new_user_params)
-            print(f"New user created of id: {new_user.id}")
-            print("Please store this <id> in a safe place as it will be required every time you log in")
-            TheHive.user = new_user
-            storage.new(new_user)
-            storage.save()
-            print("Thank you for joining us drone.")
-            return
         else:
             print("Wrong json syntax.\n`help register` - for guidance")
             return
 
-    def do_log_in(line):
+        try:
+            password = new_user_params['password']
+            id_number = new_user_params['id_number']
+            old_id = id_number
+        except KeyError:
+            print("Missing <password> and/or <id_number> param. FAIL.")
+            return
+        
+        challenge_params = (id_number, password)
+        challenge_params = mundane.process_challenge_parameters(challenge_params)
+        new_user_params['id_number'] = challenge_params[0]
+        password = challenge_params[1]
+        del new_user_params['password']
+        new_user = create.user(new_user_params)
+
+        if new_user is not None and sphinx.create_challenge(new_user, password):
+            TheHive.user = new_user
+            storage.new(new_user)
+            storage.save()
+            print(f"New user created of id: {old_id}")
+            print("This is the id that will be required ever single time you  want to log in")
+            print("\nTHANK YOU FOR JOINING US DRONE!!\n")
+            return
+    
+    def do_log_in(self, line):
         """
         Logs-in user
         ------------
 
-        + For logging in use:
-            `authorize <id_number> <password>`
+        +  Usage:
+            `log_in <id_number> <password>`
         
         - Please note that we store both your id_number or your password as
           hashes
@@ -165,26 +183,20 @@ class TheHive(cmd.Cmd):
         - Don't enclose your args in quotes unless expressly stated in the
           help
         """
+        self.do_log_out
         processedLine = line.split(' ')
         id_number = processedLine[0]
         password = processedLine[1]
-        
-        id_number_hashed = hashlib.sha256(id_number_hashed.encode())
-        id_number = id_number_hashed.hexdigest()
-        
-        try:
-            user_instance = storage.all()[f'id_number']
-        except KeyError:
-            print("<id> does not exist. Try Again")
-            return
 
-        password_hashed = hashlib.sha256(password.encode())
-        hex_password = password_hashed.hexdigest()
-        if hex_password == user_instance.password:
-            TheHive.user = user_instance
+        challenge_params = (id_number, password)
+        
+        challenge_params = mundane.process_challenge_parameters(challenge_params)
+
+        TheHive.user = sphinx.solve_challenge(challenge_params)
+        if TheHive.user is not None:
             print("Welcome back drone.")
         else:
-            print("Wrong Password. Failed to initialise. Try Again")
+            print("Wrong Password and/or id_number.\nFailed to initialise\n Try Again")
 
 
     def do_create(self, line):
@@ -204,7 +216,7 @@ class TheHive(cmd.Cmd):
         allowed_classes_for_create = {'Community': Community, 'Issue': Issue,
                'Debate': Debate}
         if not self.checkIfUserIsInitialised():
-            print("Please initialise user first using the `authorize` function. For help type `help authorize`")
+            print("Please log-in or register first. For help type `help log_in` or `help register`")
             return
         if not line:
             print("<class_name> missing")
@@ -252,7 +264,7 @@ class TheHive(cmd.Cmd):
             `show <class_name> <object_id>`
         """
         if not self.checkIfUserIsInitialised():
-            print("Please initialise user first using the `authorize` function. For help type `help authorize`")
+            print("Please log-in or register first. For help type `help log_in` or `help register`")
             return
         processedLine = line.split(" ")
         class_ = processedLine[0]
@@ -283,7 +295,7 @@ class TheHive(cmd.Cmd):
             `destroy <class_name> <id>`
         """
         if not self.checkIfUserIsInitialised():
-            print("Please initialise user first using the `authorize` function. For help type `help authorize`")
+            print("Please log-in or register first. For help type `help log_in` or `help register`")
             return
         processedLine = line.split(" ")
         class_ = processedLine[0]
@@ -321,7 +333,7 @@ class TheHive(cmd.Cmd):
             `all <ClassName>`
         """
         if not self.checkIfUserIsInitialised():
-            print("Please initialise user first using the `authorize` function. For help type `help authorize`")
+            print("Please log-in or register first. For help type `help log_in` or `help register`")
             return
         objects_list = []
         if line:
@@ -348,7 +360,7 @@ class TheHive(cmd.Cmd):
             `count <class_name>`
         """
         if not self.checkIfUserIsInitialised():
-            print("Please initialise user first using the `authorize` function. For help type `help authorize`")
+            print("Please log-in or register first. For help type `help log_in` or `help register`")
             return
         
         if not line or len(line) == 0:
@@ -395,7 +407,7 @@ class TheHive(cmd.Cmd):
         This will update the parent attribute of Issue instance.
         """
         if not self.checkIfUserIsInitialised():
-            print("Please initialise user first using the `authorize` function. For help type `help authorize`")
+            print("Please log-in or register first. For help type `help log_in` or `help register`")
             return
         if line is None or len(line) < 1:
             print("Missing class name. Cannot update. FAIL")
@@ -439,7 +451,7 @@ class TheHive(cmd.Cmd):
             `join <community_id>`
         """
         if not self.checkIfUserIsInitialised():
-            print("Please initialise user first using the `authorize` function. For help type `help authorize`")
+            print("Please log-in or register first. For help type `help log_in` or `help register`")
             return
         processed_line = line.split(' ')
         if line is None or len(processed_line) == 0 or len(processed_line) > 1:
@@ -470,7 +482,7 @@ class TheHive(cmd.Cmd):
             `leave <community_id>`
         """
         if not self.checkIfUserIsInitialised():
-            print("Please initialise user first using the `authorize` function. For help type `help authorize`")
+            print("Please log-in or register first. For help type `help log_in` or `help register`")
             return
         processed_line = line.split(' ')
         if line is None or len(processed_line) == 0:
@@ -507,7 +519,7 @@ class TheHive(cmd.Cmd):
         ON VOTES_TALLY, TIME_CREATED, VOTES_FOR AND VOTES_AGAINST. 
         """
         if not self.checkIfUserIsInitialised():
-            print("Please initialise user first using the `authorize` function. For help type `help authorize`")
+            print("Please log-in or register first. For help type `help log_in` or `help register`")
             return
         current_user = TheHive.user
         user_communities_ids = current_user.communities_joined
