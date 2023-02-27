@@ -7,7 +7,7 @@ from blueprints.debate import Debate
 from blueprints import ISSUEFILE
 
 """
-We start off with functions requested by Community and/or Issue
+This module is purposed to query and work with the ancestry-files custom storages
 """
 
 OBJ_NONE = "Parsed a None object expected an horde object. Fail in ancestry module."
@@ -24,7 +24,6 @@ def getNamesFromFileOf(object_):
             object_lst = object_file.read().split('_')
         return object_lst
     except FileNotFoundError:
-        print(f"File {filepath} not found")
         return []
 
 def writeIdsToFile(filepath, sortedListOfIds):
